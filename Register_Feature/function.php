@@ -31,7 +31,7 @@ function insert(){
 
 
   // Insert value to database
-  $query = "INSERT INTO account VALUES('$email', '$name', '$pwd')";
+  $query = "INSERT INTO account VALUES('$email', '$name', MD5('$pwd'))";
   mysqli_query($conn, $query);
   // Output
   echo 1;
