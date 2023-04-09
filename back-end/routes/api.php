@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\favorite;
 use App\Models\ingredient;
 use App\Models\recipe;
 use App\Models\review;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use SebastianBergmann\Environment\Console;
 
 /*
@@ -130,4 +132,46 @@ Route::put('/recipe/{recipe}', function(Request $request, $id){
     recipe::where('recipeID', $id)->update($dataUpdate);
 
     return response()->json(['message' => 'Rating posted successfully'], 200);
+});
+
+Route::get('/recipes/favorite', function(Request $request) {
+    $email = $request->email;
+    $data_favorites = favorite::where('email', $email)->get();
+    $data_recipes = [];
+    
+    foreach ($data_favorites as $favorite){
+        $recipeID = $favorite->recipeID;
+        $recipe = recipe::where('recipeID', $recipeID)->first();
+        $data_recipes[] = $recipe;
+    }
+
+    return response()->json($data_recipes);
+});
+
+Route::post('/recipes/favorite', function(Request $request) {
+    $id = $request['id'];
+    $email = $request['email'];
+    $rules = [
+        'id' => ['required', Rule::unique('favorites')->where(function ($query) use($id, $email) {
+                return $query->where('id', $id)->where('email', $email);
+        })],
+    ];
+
+    $validator = Validator::make($request->all(), $rules);
+    if ($validator->fails()){
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    // add favorite
+    favorite::create([
+        'id' => $id,
+        'email' => $email
+    ]);
+
+    return response()->json(['message' => 'Resep berhasil ditambahkan ke favorit'], 200);
+});
+
+Route::delete('/recipes/favorite/{favorite}', function($id) {
+    favorite::where('id', $id)->delete();
+    return response()->json(['message' => 'favorit berhasil dihapus'], 200);
 });
