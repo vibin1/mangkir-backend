@@ -41,25 +41,36 @@ Route::post('/recipe', function(Request $request){
         'judul' => 'required',
         'servings' => 'required',
         'steps' => 'required',
-        'ingredients' => 'required'
+        'ingredients' => 'required',
+        'tools' => 'required'
     ];
-
+    
     $validator = Validator::make($request->all(), $rules);
     if ($validator->fails()){
         return response()->json(['error' => $validator->errors()], 401);
     }
-
+    
     $data_recipe = [
         'emailAuthor' => $request->email,
         'judul' => $request->judul,
         'backstory' => $request->backstory,
         'asalDaerah' => $request->asalDaerah,
         'servings' => $request->servings,
-        'durasi_menit' => $request->durasi,
+        'durasi_menit' => $request->durasi_menit,
         'foto' => $request->foto ,
         'rating' => null,
+        'videoURL' => $request->video,
         'numReviews' => 0
     ];
+    if ($request->hasFile('foto')) {
+        $foto_file = $request->file('foto');
+        $foto_ekstensi = $foto_file->getClientOriginalExtension();
+        $foto_nama = date('ymdhis').'.'.$foto_ekstensi;
+        $foto_file->move(public_path('foto'), $foto_nama);
+        $data_recipe['foto'] = $foto_nama;
+        return response()->json($foto_nama);
+    }
+    // return response()->json($data_recipe);
     
     $new_recipe = recipe::create($data_recipe);
     $new_recipe_id = $new_recipe->id;
@@ -88,6 +99,7 @@ Route::post('/recipe', function(Request $request){
             'recipeID' => $new_recipe_id,
             'nama_alat' => $tool,
         ];
+        // return response()->json($data_tool);
         tool::create($data_tool);
     }
 
@@ -100,6 +112,7 @@ Route::post('/recipe', function(Request $request){
         ];
         step_recipe::create($data_step);
     }
+    return response()->json(['message' => 'Recipe Post Successfully'], 200);
 });
 
 Route::post('/login', function (Request $request) {
@@ -144,8 +157,22 @@ Route::post('/register', function(Request $request){
     return response()->json(['message' => 'User registered successfully'], 200);
 });
 
-Route::get('/recipes', function(){
-    $recipes = recipe::get();
+Route::get('/recipes', function () {
+    $recipes = Recipe::get();
+    
+    // Add the image URL as an attribute to each recipe
+    $recipes = $recipes->map(function ($recipe) {
+        $imageUrl = '';
+        if ($recipe->foto && preg_match('/^data:image\/(\w+);base64,/', $recipe->foto)) {
+            $imageData = base64_decode(explode(',', $recipe->foto)[1]);
+            $fileName = uniqid() . '.jpg';
+            Storage::disk('public')->put($fileName, $imageData);
+            $imageUrl = Storage::disk('public')->url($fileName);
+        }
+        return $recipe->setAttribute('image_url', $imageUrl);
+    });
+
+    // Return the modified recipes as a JSON response
     return response()->json($recipes);
 });
 
